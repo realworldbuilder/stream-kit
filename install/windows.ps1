@@ -2,6 +2,7 @@
 # Run in PowerShell:  irm https://raw.githubusercontent.com/realworldbuilder/stream-kit/main/install/windows.ps1 | iex
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'   # makes the download much faster in Windows PowerShell 5
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12   # older Windows defaults can't reach GitHub
 
 Write-Host ""
 Write-Host "Stream Kit" -ForegroundColor Magenta
