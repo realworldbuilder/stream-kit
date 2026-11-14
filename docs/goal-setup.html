@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Daily sub goal setup · Stream Kit</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="kit.css">
+<script src="config.js"></script>
+</head>
+<body>
+<main>
+  <p class="back"><a href="./">← Stream Kit</a></p>
+  <h1>Daily sub goal</h1>
+  <p class="lede">A bar on your stream that counts today's subs straight from Twitch and starts again at zero every day.</p>
+
+  <section class="card" id="step-login">
+    <h2><span class="n">1</span> Connect Twitch</h2>
+    <p>Twitch asks you to let Stream Kit <b>see your subscribers</b>. That is the only permission it gets: it can't post, change anything, or see your email.</p>
+    <p id="not-configured" class="warn" hidden>This kit isn't hooked up to Twitch yet. Ask the person who sent you the link to finish setup.</p>
+    <button id="login" class="primary">Connect Twitch</button>
+    <p id="who" class="ok" hidden></p>
+  </section>
+
+  <section class="card" id="step-style">
+    <h2><span class="n">2</span> Set your goal</h2>
+    <div class="grid">
+      <label>Title on the bar <input id="label" value="Daily sub goal"></label>
+      <label>Goal <input id="goal" type="number" min="1" value="10"></label>
+      <label>New day starts at
+        <select id="reset"></select>
+        <small>Pick a time you're never live, so a late stream doesn't reset halfway.</small>
+      </label>
+      <label>Count
+        <select id="mode">
+          <option value="subs">Subs (every sub, resub and gifted sub = 1)</option>
+          <option value="points">Sub points (Tier 2 = 2, Tier 3 = 6)</option>
+        </select>
+      </label>
+      <label>Bar colour <input id="accent" type="color" value="#9147ff"></label>
+      <label>Text colour <input id="text" type="color" value="#ffffff"></label>
+    </div>
+    <p class="muted">Preview (fake subs, so you can see it move):</p>
+    <div class="preview"><iframe id="preview" title="preview"></iframe></div>
+  </section>
+
+  <section class="card" id="step-obs">
+    <h2><span class="n">3</span> Put it in OBS</h2>
+    <ol>
+      <li>Copy your link: <button id="copy" disabled>Copy link</button> <span id="copied" class="ok" hidden>Copied</span>
+        <p class="warn small">This link has your Twitch login inside it. Don't show it on stream or send it to anyone.</p></li>
+      <li>In OBS, under <b>Sources</b> click <b>+</b> → <b>Browser</b> → name it "Sub goal" → OK.</li>
+      <li>Paste the link into <b>URL</b>. Set <b>Width 600</b>, <b>Height 120</b>. Click OK, then drag it where you want it.</li>
+    </ol>
+    <h3>Good to know</h3>
+    <ul>
+      <li><b>Wrong number?</b> Right-click the Sub goal source → <b>Interact</b>, then press <kbd>+</kbd> or <kbd>-</kbd> to fix it, or <kbd>0</kbd> to reset.</li>
+      <li>It only counts subs while OBS is open. Subs that came in while OBS was closed won't show; add them with <kbd>+</kbd>.</li>
+      <li>If the bar ever says the login ran out, come back here, connect again, and paste the new link into the same source (double-click it in OBS).</li>
+    </ul>
+  </section>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const clientId = (window.STREAMKIT && window.STREAMKIT.twitchClientId) || "";
+  const redirect = location.origin + location.pathname;
+  let token = sessionStorage.getItem("streamkit-token") || "";
+
+  for (let h = 0; h < 24; h++) {
+    const o = document.createElement("option");
+    o.value = h;
+    o.textContent = (h % 12 || 12) + ":00 " + (h < 12 ? "am" : "pm");
+    if (h === 4) o.selected = true;
+    $("reset").appendChild(o);
+  }
+
+  if (!clientId) { $("not-configured").hidden = false; $("login").disabled = true; }
+
+  // Coming back from Twitch: the token is in the part after "#".
+  const back = new URLSearchParams(location.hash.slice(1));
+  if (back.get("access_token")) {
+    if (back.get("state") === sessionStorage.getItem("streamkit-state")) {
+      token = back.get("access_token");
+      sessionStorage.setItem("streamkit-token", token);
+    }
+    history.replaceState(null, "", location.pathname);
+  } else if (back.get("error")) {
+    history.replaceState(null, "", location.pathname);
+    $("who").hidden = false; $("who").className = "warn";
+    $("who").textContent = "Twitch didn't connect (" + (back.get("error_description") || back.get("error")) + "). Try again.";
+  }
+
+  $("login").onclick = () => {
+    const state = crypto.getRandomValues(new Uint32Array(4)).join("-");
+    sessionStorage.setItem("streamkit-state", state);
+    const q = new URLSearchParams({
+      response_type: "token", client_id: clientId, redirect_uri: redirect,
+      scope: "channel:read:subscriptions", state, force_verify: "true",
+    });
+    location.href = "https://id.twitch.tv/oauth2/authorize?" + q;
+  };
+
+  async function check() {
+    if (!token) return;
+    const r = await fetch("https://id.twitch.tv/oauth2/validate", { headers: { Authorization: "OAuth " + token } });
+    if (!r.ok) { token = ""; sessionStorage.removeItem("streamkit-token"); return; }
+    const info = await r.json();
+    const days = info.expires_in ? Math.round(info.expires_in / 86400) : null;
+    $("who").hidden = false; $("who").className = "ok";
+    $("who").textContent = "Connected as " + info.login + (days ? ". This login lasts about " + days + " days." : ".");
+    $("login").textContent = "Connect again";
+    $("copy").disabled = false;
+  }
+
+  function params(test) {
+    const q = new URLSearchParams({
+      label: $("label").value.trim() || "Daily sub goal",
+      goal: String(Math.max(1, parseInt($("goal").value, 10) || 10)),
+      reset: $("reset").value,
+      mode: $("mode").value,
+      accent: $("accent").value.slice(1),
+      text: $("text").value.slice(1),
+    });
+    if (test) q.set("test", "1"); else q.set("token", token);
+    return q.toString();
+  }
+  const base = new URL("goal.html", location.href).href;
+
+  let t, v = 0;
+  function refreshPreview() {
+    clearTimeout(t);
+    t = setTimeout(() => { $("preview").src = base + "?v=" + (++v) + "#" + params(true); }, 250);
+  }
+  ["label", "goal", "reset", "mode", "accent", "text"].forEach((id) => $(id).addEventListener("input", refreshPreview));
+  refreshPreview();
+
+  $("copy").onclick = async () => {
+    await navigator.clipboard.writeText(base + "#" + params(false));
+    $("copied").hidden = false; setTimeout(() => ($("copied").hidden = true), 2000);
+  };
+
+  check();
+})();
+</script>
+</body>
+</html>

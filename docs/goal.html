@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Daily sub goal</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --accent: #9147ff;
+    --text: #ffffff;
+    --track: rgba(0, 0, 0, 0.55);
+    color-scheme: light dark;
+    --font: "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
+  }
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  body { font-family: var(--font); color: var(--text); padding: 12px; box-sizing: border-box; }
+  .goal { width: 100%; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; margin: 0 4px 8px; text-shadow: 0 2px 4px rgba(0,0,0,.7); }
+  .label { font-size: 26px; font-weight: 700; letter-spacing: .3px; }
+  .count { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .track { position: relative; height: 34px; border-radius: 17px; background: var(--track); overflow: hidden; box-shadow: inset 0 0 0 2px rgba(255,255,255,.15); }
+  .fill { position: absolute; inset: 0 auto 0 0; width: 0%; border-radius: 17px; background: var(--accent);
+          transition: width .8s cubic-bezier(.2,.9,.3,1.2); }
+  .fill::after { content: ""; position: absolute; inset: 0; border-radius: inherit;
+                 background: linear-gradient(180deg, rgba(255,255,255,.35), rgba(255,255,255,0) 60%); }
+  .bump .count { animation: bump .6s ease; }
+  @keyframes bump { 30% { transform: scale(1.35); } 100% { transform: scale(1); } }
+  .done .track { animation: glow 1.6s ease-in-out infinite; }
+  @keyframes glow { 50% { box-shadow: inset 0 0 0 2px rgba(255,255,255,.15), 0 0 22px var(--accent); } }
+  .notice { margin: 8px 4px 0; font-size: 15px; font-weight: 600; background: rgba(0,0,0,.75); padding: 6px 10px; border-radius: 8px; display: none; }
+  .notice.show { display: inline-block; }
+</style>
+</head>
+<body>
+<div class="goal" id="goal">
+  <div class="row"><span class="label" id="label">Daily sub goal</span><span class="count" id="count">0 / 10</span></div>
+  <div class="track"><div class="fill" id="fill"></div></div>
+  <div class="notice" id="notice"></div>
+</div>
+<script>
+(() => {
+  // Settings come from the part of the link after "#", so they never reach a server.
+  const p = new URLSearchParams(location.hash.slice(1));
+  const cfg = {
+    token: p.get("token") || "",
+    goal: Math.max(1, parseInt(p.get("goal") || "10", 10)),
+    label: p.get("label") || "Daily sub goal",
+    reset: Math.min(23, Math.max(0, parseInt(p.get("reset") || "4", 10))), // hour the day rolls over
+    mode: p.get("mode") === "points" ? "points" : "subs",
+    test: p.get("test") === "1",
+  };
+  if (p.get("accent")) document.documentElement.style.setProperty("--accent", "#" + p.get("accent").replace("#", ""));
+  if (p.get("text")) document.documentElement.style.setProperty("--text", "#" + p.get("text").replace("#", ""));
+  if (p.get("track")) document.documentElement.style.setProperty("--track", "#" + p.get("track").replace("#", ""));
+
+  const $ = (id) => document.getElementById(id);
+  $("label").textContent = cfg.label;
+
+  // ---- daily count, kept in the browser source's own storage so a refresh keeps it ----
+  let userId = cfg.test ? "test" : "";
+  function dayKey() {
+    const d = new Date(Date.now() - cfg.reset * 3600 * 1000);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  const storeKey = () => "streamkit-goal:" + userId + ":" + cfg.mode + ":" + dayKey();
+  let day = dayKey();
+  let count = 0;
+  function load() {
+    if (cfg.test) { count = 0; return; }
+    count = parseInt(localStorage.getItem(storeKey()) || "0", 10) || 0;
+  }
+  function save() { if (!cfg.test && userId) localStorage.setItem(storeKey(), String(count)); }
+
+  function render(bumped) {
+    $("count").textContent = count + " / " + cfg.goal;
+    $("fill").style.width = Math.min(100, (count / cfg.goal) * 100) + "%";
+    $("goal").classList.toggle("done", count >= cfg.goal);
+    if (bumped) {
+      $("goal").classList.remove("bump"); void $("goal").offsetWidth; $("goal").classList.add("bump");
+    }
+  }
+  function add(n) { count = Math.max(0, count + n); save(); render(n > 0); }
+
+  function notice(msg) { $("notice").textContent = msg; $("notice").classList.toggle("show", !!msg); }
+
+  // New day: start from zero without reloading.
+  setInterval(() => { if (dayKey() !== day) { day = dayKey(); load(); render(false); } }, 30000);
+
+  // Fix the number by hand: right-click the source in OBS, Interact, then press + or -.
+  addEventListener("keydown", (e) => {
+    if (e.key === "+" || e.key === "=" || e.key === "ArrowUp") add(1);
+    if (e.key === "-" || e.key === "_" || e.key === "ArrowDown") add(-1);
+    if (e.key === "0") { count = 0; save(); render(false); }
+  });
+
+  const TIER_POINTS = { "1000": 1, "2000": 2, "3000": 6 };
+  const worth = (tier) => cfg.mode === "points" ? (TIER_POINTS[tier] || 1) : 1;
+
+  if (cfg.test) {
+    load(); render(false);
+    notice("Test mode: fake subs every 2 seconds");
+    setInterval(() => add(worth(["1000", "1000", "1000", "2000", "3000"][Math.floor(Math.random() * 5)])), 2000);
+    return;
+  }
+  if (!cfg.token) { render(false); notice("Not connected: make this link on the setup page"); return; }
+
+  // ---- Twitch ----
+  let clientId = "";
+  const seen = new Set();
+
+  async function validate() {
+    const r = await fetch("https://id.twitch.tv/oauth2/validate", { headers: { Authorization: "OAuth " + cfg.token } });
+    if (r.status === 401) throw new Error("expired");
+    if (!r.ok) throw new Error("validate " + r.status);
+    return r.json();
+  }
+
+  async function subscribe(sessionId, type) {
+    const r = await fetch("https://api.twitch.tv/helix/eventsub/subscriptions", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + cfg.token, "Client-Id": clientId, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type, version: "1",
+        condition: { broadcaster_user_id: userId },
+        transport: { method: "websocket", session_id: sessionId },
+      }),
+    });
+    if (!r.ok) throw new Error(type + " " + r.status + " " + (await r.text()));
+  }
+
+  let ws = null, keepaliveTimer = null, retry = 0;
+
+  function connect(url, isReconnect) {
+    const sock = new WebSocket(url || "wss://eventsub.wss.twitch.tv/ws");
+    let kaSecs = 30;
+    const armKeepalive = () => {
+      clearTimeout(keepaliveTimer);
+      keepaliveTimer = setTimeout(() => sock.close(), (kaSecs + 10) * 1000);
+    };
+    sock.onmessage = async (ev) => {
+      const msg = JSON.parse(ev.data);
+      const type = msg.metadata.message_type;
+      armKeepalive();
+      if (type === "session_welcome") {
+        const old = ws;
+        ws = sock; retry = 0;
+        kaSecs = msg.payload.session.keepalive_timeout_seconds || 30;
+        armKeepalive();
+        if (isReconnect && old) { old.onclose = null; old.close(); return; } // subscriptions carry over
+        try {
+          await subscribe(msg.payload.session.id, "channel.subscribe");             // new subs + each gifted sub
+          await subscribe(msg.payload.session.id, "channel.subscription.message");  // resubs
+          notice("");
+        } catch (err) {
+          console.error(err);
+          notice("Twitch said no to the sub listener. Reconnect on the setup page.");
+        }
+      } else if (type === "session_reconnect") {
+        connect(msg.payload.session.reconnect_url, true);
+      } else if (type === "notification") {
+        const id = msg.metadata.message_id;
+        if (seen.has(id)) return;
+        seen.add(id);
+        if (seen.size > 500) seen.delete(seen.values().next().value);
+        add(worth(msg.payload.event.tier));
+      } else if (type === "revocation") {
+        notice("Twitch login was revoked. Reconnect on the setup page.");
+      }
+    };
+    sock.onclose = () => {
+      if (ws !== sock && ws) return;
+      clearTimeout(keepaliveTimer);
+      ws = null;
+      const wait = Math.min(60, 2 ** retry++) * 1000;
+      setTimeout(() => start(), wait);
+    };
+  }
+
+  async function start() {
+    try {
+      const info = await validate();
+      clientId = info.client_id;
+      if (userId !== info.user_id) { userId = info.user_id; load(); render(false); }
+      if (!(info.scopes || []).includes("channel:read:subscriptions")) {
+        notice("This login can't see subs. Reconnect on the setup page."); return;
+      }
+      if (info.expires_in && info.expires_in < 3 * 86400) {
+        notice("Twitch login runs out in " + Math.max(1, Math.round(info.expires_in / 86400)) + " day(s). Reconnect on the setup page.");
+      }
+      connect();
+    } catch (err) {
+      if (err.message === "expired") { render(false); notice("Twitch login ran out. Reconnect on the setup page and paste the new link into OBS."); return; }
+      console.error(err);
+      setTimeout(start, Math.min(60, 2 ** retry++) * 1000);
+    }
+  }
+
+  render(false);
+  start();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stream Kit · OBS multistream, combined chat, daily sub goal</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<main>
+  <h1>Stream Kit</h1>
+  <p class="lede">Four fixes for streaming from OBS to Twitch and YouTube at once. Do them in order; each one takes about five minutes.</p>
+
+  <section class="card" id="install">
+    <h2><span class="n">1</span> Stream to both, stop each one on its own</h2>
+    <p>This installs <b>Aitum Multistream</b>, a free OBS plugin. It adds a panel to OBS with a separate Start/Stop button for each platform, so you can see where you're live and end YouTube while Twitch keeps going.</p>
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-os="win">Windows</button>
+      <button role="tab" aria-selected="false" data-os="mac">Mac</button>
+    </div>
+    <div data-panel="win">
+      <p>Click Start, type <b>PowerShell</b>, open it, paste this line and press Enter:</p>
+      <div class="copyrow"><pre id="cmd-win">irm https://raw.githubusercontent.com/realworldbuilder/stream-kit/main/install/windows.ps1 | iex</pre><button data-copy="cmd-win">Copy</button></div>
+    </div>
+    <div data-panel="mac" hidden>
+      <p>Press <kbd>⌘</kbd> + <kbd>Space</kbd>, type <b>Terminal</b>, open it, paste this line and press Enter:</p>
+      <div class="copyrow"><pre id="cmd-mac">curl -fsSL https://raw.githubusercontent.com/realworldbuilder/stream-kit/main/install/mac.sh | bash</pre><button data-copy="cmd-mac">Copy</button></div>
+    </div>
+    <h3>Then, in OBS</h3>
+    <ol>
+      <li>Keep your normal OBS stream settings on <b>Twitch</b>. Nothing changes there.</li>
+      <li>Find the <b>Multistream</b> panel. If you don't see it, open the <b>Docks</b> menu at the top and tick it.</li>
+      <li>Open the panel's settings (the cog) and add an output for <b>YouTube</b>. Paste your stream key from <a href="https://studio.youtube.com" target="_blank">YouTube Studio</a> → <b>Create</b> → <b>Go live</b> → <b>Stream</b> → <b>Stream key</b>.</li>
+      <li>If you went live on both before with something else (Restream, or a second stream key), turn that off so YouTube doesn't get two streams.</li>
+    </ol>
+    <p>When you go live, start Twitch with OBS's normal <b>Start Streaming</b> button and start YouTube from its button in the Multistream panel. To end YouTube early, click its <b>Stop</b> button in the panel.</p>
+    <p class="muted small">In a hurry? YouTube Studio → Go live → <b>End stream</b> always works too, but stop it in OBS as well or YouTube may start a new stream.</p>
+  </section>
+
+  <section class="card" id="chat">
+    <h2><span class="n">2</span> One chat for Twitch and YouTube</h2>
+    <p><b>Social Stream Ninja</b> is free. It pulls both chats into one list, with a small Twitch or YouTube icon on each message so you can tell where it came from.</p>
+    <ol>
+      <li>Download the <b>desktop app</b> from <a href="https://socialstream.ninja" target="_blank">socialstream.ninja</a> (Windows and Mac) and open it.</li>
+      <li>In <b>Sources and Settings</b>, click <b>Service Disabled</b> so it says <b>Service Active</b>.</li>
+      <li>Add your <b>Twitch</b> channel and your <b>YouTube</b> live chat from the platform buttons on the left, then click <b>Activate source</b> on each. Sign in when it asks. The <a href="https://socialstream.ninja/docs/platform-setup-picker.html" target="_blank">setup picker</a> has the exact steps for each site. YouTube's chat only exists while you're live, so add it after you start the YouTube stream.</li>
+      <li><b>Chat on your stream:</b> open the <a href="https://socialstream.ninja/docs/obs-quick-start.html" target="_blank">Templates Gallery</a>, pick a chat style, and copy its link (it has your session ID in it). In OBS: <b>Sources</b> → <b>+</b> → <b>Browser</b>, paste the link, set <b>Width 450</b>, <b>Height 700</b>.</li>
+      <li><b>Chat for you to read</b> (optional): copy the link under <b>Main chat overlay &amp; control dock</b> in the app. In OBS: <b>Docks</b> → <b>Custom Browser Docks</b>, name it "Chat", paste the link.</li>
+    </ol>
+    <p class="warn small">Your session ID works like a password for your chat feed. Don't show those links on stream.</p>
+  </section>
+
+  <section class="card" id="goal">
+    <h2><span class="n">3</span> Daily sub goal that updates by itself</h2>
+    <p>A bar that counts subs, resubs and gifted subs straight from Twitch the moment they happen, and starts again at zero every day.</p>
+    <p><a href="goal-setup.html"><button class="primary">Set up the sub goal →</button></a></p>
+  </section>
+
+  <section class="card" id="blerp">
+    <h2><span class="n">4</span> Blerp text-to-speech not playing</h2>
+    <p>Blerp sounds already play, so OBS is receiving Blerp. The problem is usually one of these. Check them in order:</p>
+    <ol>
+      <li><b>Text-to-speech is on in Blerp.</b> In your Blerp dashboard, check that TTS is switched on for channel points and that the TTS volume isn't at 0. Blerp sets its volumes separately from OBS.</li>
+      <li><b>Blerp made the reward.</b> If you made the TTS reward yourself in Twitch, Blerp may never get the message. Delete it in Twitch, then create it again from Blerp's dashboard.</li>
+      <li><b>Test outside OBS.</b> Copy your Blerp overlay link into a normal Chrome tab and click once on the page (Chrome won't play sound until you click). Then redeem TTS on your channel.
+        <ul>
+          <li><b>You hear it in Chrome</b>: the problem is in OBS. Go to step 4.</li>
+          <li><b>You don't hear it</b>: the problem is in Blerp. Check its content filter or approval settings, and test with a plain message like "hello". If it still won't play, ask in Blerp's Discord.</li>
+        </ul></li>
+      <li><b>OBS fixes.</b> Double-click the Blerp browser source and tick <b>Control audio via OBS</b>. Untick <b>Shutdown source when not visible</b>. In the Audio Mixer, make sure Blerp isn't muted, then click its ⋮ → <b>Advanced Audio Properties</b> and set monitoring to <b>Monitor and Output</b>, not "Monitor Only". Also check the Blerp source is in every scene you use.</li>
+    </ol>
+  </section>
+
+  <p class="muted small">Stream Kit is free and open source: <a href="https://github.com/realworldbuilder/stream-kit">github.com/realworldbuilder/stream-kit</a></p>
+</main>
+<script>
+  document.querySelectorAll("[data-copy]").forEach((b) => b.onclick = async () => {
+    await navigator.clipboard.writeText(document.getElementById(b.dataset.copy).textContent);
+    b.textContent = "Copied"; setTimeout(() => (b.textContent = "Copy"), 2000);
+  });
+  const pick = (os) => {
+    document.querySelectorAll("[data-os]").forEach((t) => t.setAttribute("aria-selected", t.dataset.os === os));
+    document.querySelectorAll("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== os));
+  };
+  document.querySelectorAll("[data-os]").forEach((t) => t.onclick = () => pick(t.dataset.os));
+  if (/Mac/i.test(navigator.platform || navigator.userAgent)) pick("mac");
+</script>
+</body>
+</html>
