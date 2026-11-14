@@ -16,7 +16,15 @@
   <section class="card" id="step-login">
     <h2><span class="n">1</span> Connect Twitch</h2>
     <p>Twitch asks you to let Stream Kit <b>see your subscribers</b>. That is the only permission it gets: it can't post, change anything, or see your email.</p>
-    <p id="not-configured" class="warn" hidden>This kit isn't hooked up to Twitch yet. Ask the person who sent you the link to finish setup.</p>
+    <div id="not-configured" hidden>
+      <p class="warn">This kit doesn't have a Twitch app yet. You can make your own in 2 minutes:</p>
+      <ol class="small">
+        <li>Go to <a href="https://dev.twitch.tv/console/apps" target="_blank">dev.twitch.tv/console/apps</a>, log in with your Twitch, and click <b>Register Your Application</b>. Twitch may ask you to turn on two-factor login first.</li>
+        <li>Name: <code>Stream Kit</code> plus your name (it has to be unique). OAuth Redirect URL: <code id="redir"></code>. Category: <b>Broadcasting Suite</b>. Client Type: <b>Confidential</b>. Then click <b>Create</b>.</li>
+        <li>Click <b>Manage</b>, copy the <b>Client ID</b> (not the secret), and paste it here:</li>
+      </ol>
+      <p><input id="own-id" placeholder="Client ID" style="width:100%" autocomplete="off" spellcheck="false"></p>
+    </div>
     <button id="login" class="primary">Connect Twitch</button>
     <p id="who" class="ok" hidden></p>
   </section>
@@ -62,7 +70,8 @@
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
-  const clientId = (window.STREAMKIT && window.STREAMKIT.twitchClientId) || "";
+  const configured = (window.STREAMKIT && window.STREAMKIT.twitchClientId) || "";
+  let clientId = configured || localStorage.getItem("streamkit-client-id") || "";
   const redirect = location.origin + location.pathname;
   let token = sessionStorage.getItem("streamkit-token") || "";
 
@@ -74,7 +83,17 @@
     $("reset").appendChild(o);
   }
 
-  if (!clientId) { $("not-configured").hidden = false; $("login").disabled = true; }
+  if (!configured) {
+    $("not-configured").hidden = false;
+    $("redir").textContent = redirect;
+    $("own-id").value = clientId;
+    $("login").disabled = !clientId;
+    $("own-id").addEventListener("input", () => {
+      clientId = $("own-id").value.trim();
+      localStorage.setItem("streamkit-client-id", clientId);
+      $("login").disabled = !/^[a-z0-9]{20,40}$/i.test(clientId);
+    });
+  }
 
   // Coming back from Twitch: the token is in the part after "#".
   const back = new URLSearchParams(location.hash.slice(1));
