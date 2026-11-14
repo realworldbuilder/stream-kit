@@ -3,5 +3,5 @@
 // Register the app at https://dev.twitch.tv/console/apps with the redirect URL
 // https://realworldbuilder.github.io/stream-kit/goal-setup.html
 window.STREAMKIT = {
-  twitchClientId: "",
+  twitchClientId: "ubpg7yvwsebr2435pxx0mfjg4133xn",
 };
